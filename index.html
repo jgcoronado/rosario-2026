@@ -1,0 +1,261 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Recorrido del Rosario · 11/10/2026</title>
+<meta name="description" content="Plano interactivo del recorrido del Rosario del 11 de octubre de 2026 en Sevilla, con las registros (abajo/arriba) y su hora.">
+<meta property="og:title" content="Recorrido del Rosario · 11/10/2026">
+<meta property="og:description" content="Plano interactivo con cada registro y su hora: plano, satélite y ortofoto PNOA.">
+<link rel="stylesheet" href="vendor/maplibre-gl.css">
+<script src="vendor/maplibre-gl.js"></script>
+<style>
+:root {
+  --bg: #ffffff; --fg: #1f1d1a; --muted: #6b665d; --line: #d9d5cc;
+  --abajo: #b83232; --arriba: #2f63a3; --route: #e0a020; --sel: #f0b54a;
+  --font: system-ui, -apple-system, "Segoe UI", sans-serif; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root { --bg: #1d1c1a; --fg: #ece8e0; --muted: #a39d92; --line: #3a3732; color-scheme: dark; } }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font-family: var(--font); color: var(--fg); background: var(--bg); }
+#app { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
+#map { height: 100%; }
+aside { overflow-y: auto; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
+.sec { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+h1 { font-size: 1.05rem; margin: 0; }
+.meta { font-size: .8rem; color: var(--muted); margin: 0; }
+.meta a { color: inherit; }
+.lbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.seg button { flex: 1; border: 0; background: transparent; color: var(--fg); padding: 8px 4px; font: inherit; font-size: .85rem; cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button.on { background: var(--fg); color: var(--bg); }
+.row { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.btn { border: 1px solid var(--line); background: transparent; color: var(--fg); border-radius: 6px; padding: 7px 10px; font: inherit; font-size: .85rem; cursor: pointer; }
+.btn:hover { border-color: var(--muted); }
+.chk { display: inline-flex; align-items: center; gap: 5px; font-size: .88rem; cursor: pointer; }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+input[type=range] { width: 100%; }
+.mono { font-family: var(--mono); font-size: .8rem; font-variant-numeric: tabular-nums; }
+#lista { list-style: none; margin: 0; padding: 0; }
+#lista li { display: grid; grid-template-columns: 26px 62px 1fr auto; gap: 6px; align-items: center; padding: 7px 14px; font-size: .85rem; cursor: pointer; border-bottom: 1px solid var(--line); }
+#lista li:hover, #lista li.on { background: color-mix(in srgb, var(--sel) 22%, transparent); }
+#lista li.off { display: none; }
+.t-abajo { color: var(--abajo); font-weight: 600; } .t-arriba { color: var(--arriba); font-weight: 600; }
+.mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 600 10px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.45); cursor: pointer; }
+.mk.abajo { background: var(--abajo); } .mk.arriba { background: var(--arriba); }
+.mk.on { outline: 3px solid var(--sel); }
+.maplibregl-popup-content { font-family: var(--font); font-size: .85rem; color: #1f1d1a; }
+.solo-movil { display: none; }
+@media (max-width: 760px) {
+  #app { grid-template-columns: 1fr; grid-template-rows: 62% 38%; }
+  #map { grid-row: 1; } aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+  .solo-pc { display: none; } .solo-movil { display: block; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+  <aside>
+    <div class="sec">
+      <h1>Recorrido del Rosario</h1>
+      <p class="meta" id="meta"></p>
+    </div>
+    <div class="sec">
+      <span class="lbl">Fondo</span>
+      <div class="seg" id="fondos">
+        <button data-b="osm" class="on">Plano</button>
+        <button data-b="esri">Satélite</button>
+        <button data-b="pnoa">PNOA (IGN)</button>
+      </div>
+      <div class="row">
+        <button class="btn" id="rotL" title="Girar 15° a la izquierda">⟲ 15°</button>
+        <button class="btn" id="rotR" title="Girar 15° a la derecha">⟳ 15°</button>
+        <button class="btn" id="norte">Norte arriba</button>
+        <button class="btn" id="tilt">Vista 3D</button>
+        <button class="btn" id="fit">Encuadrar</button>
+      </div>
+      <p class="meta solo-pc">Girar: clic derecho + arrastrar, o Ctrl + arrastrar.</p>
+      <p class="meta solo-movil">Girar: dos dedos girando. Inclinar: dos dedos arrastrando hacia arriba.</p>
+    </div>
+    <div class="sec">
+      <div class="row">
+        <label class="chk"><input type="checkbox" id="f-abajo" checked><i class="dot" style="background:var(--abajo)"></i>abajo</label>
+        <label class="chk"><input type="checkbox" id="f-arriba" checked><i class="dot" style="background:var(--arriba)"></i>arriba</label>
+        <label class="chk"><input type="checkbox" id="f-ruta" checked>recorrido</label>
+      </div>
+      <span class="lbl">Hasta el punto <span id="hastaTxt" class="mono"></span></span>
+      <div class="row" style="flex-wrap:nowrap">
+        <button class="btn" id="play" style="min-width:80px">▶ Ver</button>
+        <input type="range" id="hasta" min="1" step="1" aria-label="Mostrar puntos hasta">
+      </div>
+    </div>
+    <ul id="lista"></ul>
+    <div class="sec"><p class="meta"><a href="rosario.csv" download>Descargar los datos (CSV)</a></p></div>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script>
+// Datos corregidos (rosario.csv). Separador ";" y coma decimal.
+const CSV = `fecha;hora;accion;latitud;longitud;precision_m
+11/10/2026;18:15:13;abajo;37,386698;-5,99274;2
+11/10/2026;18:18:50;arriba;37,386699;-5,992713;2
+11/10/2026;18:22:33;abajo;37,386294;-5,992563;2
+11/10/2026;18:24:48;arriba;37,38628;-5,992555;3,6
+11/10/2026;18:30:51;abajo;37,386762;-5,992966;2
+11/10/2026;18:33:29;arriba;37,38676;-5,992973;2
+11/10/2026;18:38:01;abajo;37,386706;-5,993793;2
+11/10/2026;18:39:50;abajo;37,386707;-5,993796;2
+11/10/2026;18:39:52;arriba;37,386706;-5,993801;2
+11/10/2026;18:45:47;abajo;37,386524;-5,994728;2
+11/10/2026;18:47:35;arriba;37,386522;-5,994731;2
+11/10/2026;18:54:47;abajo;37,386182;-5,996223;2
+11/10/2026;18:57:18;arriba;37,386186;-5,996226;2
+11/10/2026;19:02:24;abajo;37,386333;-5,997033;2
+11/10/2026;19:11:05;abajo;37,386429;-5,997308;2
+11/10/2026;19:13:23;arriba;37,386426;-5,997311;2
+11/10/2026;19:19:41;abajo;37,386325;-5,997701;2
+11/10/2026;19:27:29;arriba;37,385985;-5,997497;2
+11/10/2026;19:29:59;arriba;37,385824;-5,997333;2
+11/10/2026;19:36:43;abajo;37,385763;-5,99696;2
+11/10/2026;19:39:18;arriba;37,385759;-5,996958;2
+11/10/2026;19:44:55;abajo;37,385584;-5,996956;2
+11/10/2026;19:46:04;arriba;37,385583;-5,996961;2
+11/10/2026;19:51:37;abajo;37,385417;-5,997219;2
+11/10/2026;19:54:37;arriba;37,385412;-5,99723;2
+11/10/2026;20:00:01;abajo;37,384712;-5,996628;2
+11/10/2026;20:03:05;arriba;37,384706;-5,996625;2
+11/10/2026;20:08:27;abajo;37,38472;-5,996322;2
+11/10/2026;20:10:18;arriba;37,384726;-5,996313;2
+11/10/2026;20:20:05;abajo;37,385107;-5,995441;2
+11/10/2026;20:23:49;arriba;37,385111;-5,995429;2
+11/10/2026;20:27:54;abajo;37,385243;-5,994897;2
+11/10/2026;20:29:47;arriba;37,385244;-5,994893;2
+11/10/2026;20:43:52;abajo;37,38511;-5,993158;2
+11/10/2026;20:47:01;arriba;37,385115;-5,993144;2
+11/10/2026;20:52:46;abajo;37,384877;-5,992249;2
+11/10/2026;20:58:35;abajo;37,385162;-5,991702;2
+11/10/2026;21:01:02;arriba;37,385166;-5,991696;2
+11/10/2026;21:09:37;abajo;37,385523;-5,990812;2
+11/10/2026;21:11:55;arriba;37,385528;-5,990807;2
+11/10/2026;21:18:23;abajo;37,386093;-5,991407;2
+11/10/2026;21:21:45;arriba;37,386093;-5,991413;2
+11/10/2026;21:49:37;arriba;37,386443;-5,993307;2
+11/10/2026;21:57:15;arriba;37,386342;-5,993576;4,1
+11/10/2026;22:02:18;abajo;37,386326;-5,993665;2`;
+
+const num = s => parseFloat(String(s).trim().replace(',', '.'));
+const rows = CSV.trim().split(/\r?\n/).slice(1).map(l => l.split(';')).filter(c => c[3] && c[3].trim())
+  .map((c, i) => ({ n: i + 1, fecha: c[0], hora: c[1], accion: c[2], lat: num(c[3]), lon: num(c[4]), prec: num(c[5]) }));
+
+const bounds = rows.reduce((b, r) => b.extend([r.lon, r.lat]), new maplibregl.LngLatBounds([rows[0].lon, rows[0].lat], [rows[0].lon, rows[0].lat]));
+const pad = () => (window.innerWidth < 760 ? 30 : 60);
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: {
+    version: 8,
+    sources: {
+      osm: { type: 'raster', tileSize: 256, maxzoom: 19,
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}'],
+        attribution: 'Plano © Esri, HERE, Garmin, © OpenStreetMap contributors' },
+      esri: { type: 'raster', tileSize: 256, maxzoom: 19,
+        tiles: ['https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}'],
+        attribution: 'Imágenes © Esri, Maxar, Earthstar Geographics' },
+      pnoa: { type: 'raster', tileSize: 256, maxzoom: 20, scheme: 'tms',
+        tiles: ['https://tms-pnoa-ma.idee.es/1.0.0/pnoa-ma/{z}/{x}/{y}.jpeg'],
+        attribution: 'PNOA © <a href="https://www.ign.es" target="_blank">Instituto Geográfico Nacional</a>' }
+    },
+    layers: [
+      { id: 'osm', type: 'raster', source: 'osm' },
+      { id: 'esri', type: 'raster', source: 'esri', layout: { visibility: 'none' } },
+      { id: 'pnoa', type: 'raster', source: 'pnoa', layout: { visibility: 'none' } }
+    ]
+  },
+  bounds, fitBoundsOptions: { padding: pad() },
+  maxZoom: 21, dragRotate: true, touchPitch: true, cooperativeGestures: false
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+map.addControl(new maplibregl.FullscreenControl(), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 120 }), 'bottom-left');
+
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+let hasta = rows.length;
+const filtro = { abajo: true, arriba: true };
+const visible = r => r.n <= hasta && (filtro[r.accion] ?? true);
+const rutaGeo = () => {
+  const pts = rows.filter(r => r.n <= hasta);
+  return { type: 'FeatureCollection', features: pts.length > 1 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: pts.map(r => [r.lon, r.lat]) } }] : [] };
+};
+
+map.on('load', () => {
+  map.addSource('ruta', { type: 'geojson', data: rutaGeo() });
+  map.addLayer({ id: 'ruta-casing', type: 'line', source: 'ruta', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 6, 'line-opacity': .8 } });
+  map.addLayer({ id: 'ruta', type: 'line', source: 'ruta', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': css('--route'), 'line-width': 3 } });
+});
+
+const lista = document.getElementById('lista');
+rows.forEach(r => {
+  const el = document.createElement('div');
+  el.className = 'mk ' + r.accion; el.textContent = r.n; el.title = `#${r.n} ${r.hora} · ${r.accion}`;
+  r.el = el;
+  r.marker = new maplibregl.Marker({ element: el }).setLngLat([r.lon, r.lat])
+    .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(
+      `<b>#${r.n}</b> · ${r.fecha} ${r.hora}<br><span class="t-${r.accion}">${r.accion}</span> · ±${r.prec.toLocaleString('es-ES')} m<br><span class="mono">${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</span>`))
+    .addTo(map);
+  el.addEventListener('click', () => marcar(r.n, false));
+  const li = document.createElement('li');
+  li.innerHTML = `<span class="mono">${r.n}</span><span class="mono">${r.hora.slice(0, 5)}</span><span class="t-${r.accion}">${r.accion}</span><span class="mono" style="color:var(--muted)">±${r.prec.toLocaleString('es-ES')}</span>`;
+  li.addEventListener('click', () => marcar(r.n, true));
+  lista.appendChild(li); r.li = li;
+});
+
+function marcar(n, volar) {
+  rows.forEach(r => { r.el.classList.toggle('on', r.n === n); r.li.classList.toggle('on', r.n === n); r.marker.getPopup().remove(); });
+  const r = rows[n - 1];
+  if (volar) map.flyTo({ center: [r.lon, r.lat], zoom: Math.max(map.getZoom(), 19), speed: 1.2 });
+  r.marker.togglePopup();
+  r.li.scrollIntoView({ block: 'nearest' });
+}
+
+function refrescar() {
+  rows.forEach(r => { const v = visible(r); r.el.style.display = v ? '' : 'none'; r.li.classList.toggle('off', !v); });
+  document.getElementById('hastaTxt').textContent = `${hasta} · ${rows[hasta - 1].hora.slice(0, 5)}`;
+  if (map.getSource('ruta')) map.getSource('ruta').setData(rutaGeo());
+}
+
+document.querySelectorAll('#fondos button').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('#fondos button').forEach(x => x.classList.toggle('on', x === b));
+  ['osm', 'esri', 'pnoa'].forEach(id => map.setLayoutProperty(id, 'visibility', id === b.dataset.b ? 'visible' : 'none'));
+}));
+document.getElementById('rotL').onclick = () => map.easeTo({ bearing: map.getBearing() - 15 });
+document.getElementById('rotR').onclick = () => map.easeTo({ bearing: map.getBearing() + 15 });
+document.getElementById('norte').onclick = () => map.easeTo({ bearing: 0, pitch: 0 });
+document.getElementById('tilt').onclick = () => map.easeTo({ pitch: map.getPitch() > 5 ? 0 : 55 });
+document.getElementById('fit').onclick = () => map.fitBounds(bounds, { padding: pad(), bearing: map.getBearing() });
+['abajo', 'arriba'].forEach(a => document.getElementById('f-' + a).onchange = e => { filtro[a] = e.target.checked; refrescar(); });
+document.getElementById('f-ruta').onchange = e => ['ruta', 'ruta-casing'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', e.target.checked ? 'visible' : 'none'));
+
+const slider = document.getElementById('hasta');
+slider.max = rows.length; slider.value = rows.length;
+slider.oninput = () => { hasta = +slider.value; refrescar(); };
+let timer = null;
+const play = document.getElementById('play');
+play.onclick = () => {
+  if (timer) { clearInterval(timer); timer = null; play.textContent = '▶ Ver'; return; }
+  if (hasta >= rows.length) hasta = 0;
+  play.textContent = '⏸ Pausa';
+  timer = setInterval(() => {
+    hasta++; slider.value = hasta; refrescar();
+    if (hasta >= rows.length) { clearInterval(timer); timer = null; play.textContent = '▶ Ver'; }
+  }, 600);
+};
+
+const ab = rows.filter(r => r.accion === 'abajo').length;
+document.getElementById('meta').textContent =
+  `${rows[0].fecha} · ${rows.length} registros (${ab} abajo, ${rows.length - ab} arriba) · ${rows[0].hora.slice(0, 5)}–${rows[rows.length - 1].hora.slice(0, 5)}`;
+refrescar();
+</script>
+</body>
+</html>
