@@ -4,27 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Recorrido del Rosario · 11/10/2026</title>
-<meta name="description" content="Plano interactivo del recorrido del Rosario del 11 de octubre de 2026 en Sevilla, con las registros (abajo/arriba) y su hora.">
+<meta name="description" content="Plano interactivo del recorrido del Rosario del 11 de octubre de 2026 en Sevilla, calle a calle, con cada registro (abajo/arriba) y su hora.">
 <meta property="og:title" content="Recorrido del Rosario · 11/10/2026">
-<meta property="og:description" content="Plano interactivo con cada registro y su hora: plano, satélite y ortofoto PNOA.">
+<meta property="og:description" content="Recorrido calle a calle con cada registro y su hora: plano, satélite y ortofoto PNOA.">
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
 <script src="vendor/maplibre-gl.js"></script>
 <style>
 :root {
-  --bg: #ffffff; --fg: #1f1d1a; --muted: #6b665d; --line: #d9d5cc;
+  --bg: #ffffff; --fg: #1f1d1a; --muted: #6b665d; --line: #d9d5cc; --soft: #f4f2ee;
   --abajo: #b83232; --arriba: #2f63a3; --route: #e0a020; --sel: #f0b54a;
   --font: system-ui, -apple-system, "Segoe UI", sans-serif; --mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
 }
-@media (prefers-color-scheme: dark) { :root { --bg: #1d1c1a; --fg: #ece8e0; --muted: #a39d92; --line: #3a3732; color-scheme: dark; } }
+@media (prefers-color-scheme: dark) { :root { --bg: #1d1c1a; --fg: #ece8e0; --muted: #a39d92; --line: #3a3732; --soft: #26241f; color-scheme: dark; } }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; font-family: var(--font); color: var(--fg); background: var(--bg); }
-#app { display: grid; grid-template-columns: 320px 1fr; height: 100%; }
+#app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
 #map { height: 100%; }
 aside { overflow-y: auto; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .sec { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
 h1 { font-size: 1.05rem; margin: 0; }
 .meta { font-size: .8rem; color: var(--muted); margin: 0; }
 .meta a { color: inherit; }
+.cifras { display: flex; gap: 14px; flex-wrap: wrap; }
+.cifras div { display: grid; }
+.cifras b { font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.cifras span { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .lbl { font-size: .7rem; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
 .seg { display: flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
 .seg button { flex: 1; border: 0; background: transparent; color: var(--fg); padding: 8px 4px; font: inherit; font-size: .85rem; cursor: pointer; }
@@ -37,18 +41,27 @@ h1 { font-size: 1.05rem; margin: 0; }
 .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
 input[type=range] { width: 100%; }
 .mono { font-family: var(--mono); font-size: .8rem; font-variant-numeric: tabular-nums; }
-#lista { list-style: none; margin: 0; padding: 0; }
-#lista li { display: grid; grid-template-columns: 26px 62px 1fr auto; gap: 6px; align-items: center; padding: 7px 14px; font-size: .85rem; cursor: pointer; border-bottom: 1px solid var(--line); }
-#lista li:hover, #lista li.on { background: color-mix(in srgb, var(--sel) 22%, transparent); }
+.tabs { display: flex; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--bg); z-index: 1; }
+.tabs button { flex: 1; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--muted); padding: 10px 4px; font: inherit; font-size: .88rem; cursor: pointer; }
+.tabs button.on { color: var(--fg); border-bottom-color: var(--route); font-weight: 600; }
+ul.lst { list-style: none; margin: 0; padding: 0; }
+#lista li { display: grid; grid-template-columns: 24px 44px 1fr; gap: 2px 8px; align-items: baseline; padding: 7px 14px; font-size: .85rem; cursor: pointer; border-bottom: 1px solid var(--line); }
+#lista li .calle { grid-column: 3; font-size: .78rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#lista li:hover, #lista li.on, #itin li:hover, #itin li.on { background: color-mix(in srgb, var(--sel) 22%, transparent); }
 #lista li.off { display: none; }
+#itin li { display: grid; grid-template-columns: 44px 1fr; gap: 8px; align-items: baseline; padding: 8px 14px; font-size: .88rem; cursor: pointer; border-bottom: 1px solid var(--line); position: relative; }
+#itin li::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 3px; background: var(--route); opacity: .55; }
+#itin li.fuera::before { background: repeating-linear-gradient(var(--route) 0 4px, transparent 4px 7px); }
+#itin li .n { font-size: .74rem; color: var(--muted); }
 .t-abajo { color: var(--abajo); font-weight: 600; } .t-arriba { color: var(--arriba); font-weight: 600; }
 .mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 600 10px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.45); cursor: pointer; }
 .mk.abajo { background: var(--abajo); } .mk.arriba { background: var(--arriba); }
 .mk.on { outline: 3px solid var(--sel); }
 .maplibregl-popup-content { font-family: var(--font); font-size: .85rem; color: #1f1d1a; }
 .solo-movil { display: none; }
+.nota { font-size: .78rem; color: var(--muted); margin: 0; padding: 10px 14px; }
 @media (max-width: 760px) {
-  #app { grid-template-columns: 1fr; grid-template-rows: 62% 38%; }
+  #app { grid-template-columns: 1fr; grid-template-rows: 58% 42%; }
   #map { grid-row: 1; } aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
   .solo-pc { display: none; } .solo-movil { display: block; }
 }
@@ -60,9 +73,9 @@ input[type=range] { width: 100%; }
     <div class="sec">
       <h1>Recorrido del Rosario</h1>
       <p class="meta" id="meta"></p>
+      <div class="cifras" id="cifras"></div>
     </div>
     <div class="sec">
-      <span class="lbl">Fondo</span>
       <div class="seg" id="fondos">
         <button data-b="osm" class="on">Plano</button>
         <button data-b="esri">Satélite</button>
@@ -82,7 +95,7 @@ input[type=range] { width: 100%; }
       <div class="row">
         <label class="chk"><input type="checkbox" id="f-abajo" checked><i class="dot" style="background:var(--abajo)"></i>abajo</label>
         <label class="chk"><input type="checkbox" id="f-arriba" checked><i class="dot" style="background:var(--arriba)"></i>arriba</label>
-        <label class="chk"><input type="checkbox" id="f-ruta" checked>recorrido</label>
+        <label class="chk"><input type="checkbox" id="f-gps">línea GPS directa</label>
       </div>
       <span class="lbl">Hasta el punto <span id="hastaTxt" class="mono"></span></span>
       <div class="row" style="flex-wrap:nowrap">
@@ -90,69 +103,50 @@ input[type=range] { width: 100%; }
         <input type="range" id="hasta" min="1" step="1" aria-label="Mostrar puntos hasta">
       </div>
     </div>
-    <ul id="lista"></ul>
-    <div class="sec"><p class="meta"><a href="rosario.csv" download>Descargar los datos (CSV)</a></p></div>
+    <div class="tabs" role="tablist">
+      <button id="tab-itin" class="on" role="tab">Itinerario</button>
+      <button id="tab-pts" role="tab">Registros</button>
+    </div>
+    <ul class="lst" id="itin"></ul>
+    <ul class="lst" id="lista" hidden></ul>
+    <p class="nota">El trazado sigue el eje de las calles del callejero oficial (CDAU) entre cada dos registros consecutivos; los tramos que pasan por espacios que no son calles se han dibujado a mano, y en plazas abiertas el trazo va en línea recta discontinua. Las horas del itinerario son las del último registro antes de entrar en cada calle. Descargar: <a href="rosario.csv" download>registros (CSV)</a> · <a href="#" id="dl-geojson">trazado (GeoJSON)</a></p>
   </aside>
   <div id="map"></div>
 </div>
 
-<script>
-// Datos corregidos (rosario.csv). Separador ";" y coma decimal.
-const CSV = `fecha;hora;accion;latitud;longitud;precision_m
-11/10/2026;18:15:13;abajo;37,386698;-5,99274;2
-11/10/2026;18:18:50;arriba;37,386699;-5,992713;2
-11/10/2026;18:22:33;abajo;37,386294;-5,992563;2
-11/10/2026;18:24:48;arriba;37,38628;-5,992555;3,6
-11/10/2026;18:30:51;abajo;37,386762;-5,992966;2
-11/10/2026;18:33:29;arriba;37,38676;-5,992973;2
-11/10/2026;18:38:01;abajo;37,386706;-5,993793;2
-11/10/2026;18:39:50;abajo;37,386707;-5,993796;2
-11/10/2026;18:39:52;arriba;37,386706;-5,993801;2
-11/10/2026;18:45:47;abajo;37,386524;-5,994728;2
-11/10/2026;18:47:35;arriba;37,386522;-5,994731;2
-11/10/2026;18:54:47;abajo;37,386182;-5,996223;2
-11/10/2026;18:57:18;arriba;37,386186;-5,996226;2
-11/10/2026;19:02:24;abajo;37,386333;-5,997033;2
-11/10/2026;19:11:05;abajo;37,386429;-5,997308;2
-11/10/2026;19:13:23;arriba;37,386426;-5,997311;2
-11/10/2026;19:19:41;abajo;37,386325;-5,997701;2
-11/10/2026;19:27:29;arriba;37,385985;-5,997497;2
-11/10/2026;19:29:59;arriba;37,385824;-5,997333;2
-11/10/2026;19:36:43;abajo;37,385763;-5,99696;2
-11/10/2026;19:39:18;arriba;37,385759;-5,996958;2
-11/10/2026;19:44:55;abajo;37,385584;-5,996956;2
-11/10/2026;19:46:04;arriba;37,385583;-5,996961;2
-11/10/2026;19:51:37;abajo;37,385417;-5,997219;2
-11/10/2026;19:54:37;arriba;37,385412;-5,99723;2
-11/10/2026;20:00:01;abajo;37,384712;-5,996628;2
-11/10/2026;20:03:05;arriba;37,384706;-5,996625;2
-11/10/2026;20:08:27;abajo;37,38472;-5,996322;2
-11/10/2026;20:10:18;arriba;37,384726;-5,996313;2
-11/10/2026;20:20:05;abajo;37,385107;-5,995441;2
-11/10/2026;20:23:49;arriba;37,385111;-5,995429;2
-11/10/2026;20:27:54;abajo;37,385243;-5,994897;2
-11/10/2026;20:29:47;arriba;37,385244;-5,994893;2
-11/10/2026;20:43:52;abajo;37,38511;-5,993158;2
-11/10/2026;20:47:01;arriba;37,385115;-5,993144;2
-11/10/2026;20:52:46;abajo;37,384877;-5,992249;2
-11/10/2026;20:58:35;abajo;37,385162;-5,991702;2
-11/10/2026;21:01:02;arriba;37,385166;-5,991696;2
-11/10/2026;21:09:37;abajo;37,385523;-5,990812;2
-11/10/2026;21:11:55;arriba;37,385528;-5,990807;2
-11/10/2026;21:18:23;abajo;37,386093;-5,991407;2
-11/10/2026;21:21:45;arriba;37,386093;-5,991413;2
-11/10/2026;21:49:37;arriba;37,386443;-5,993307;2
-11/10/2026;21:57:15;arriba;37,386342;-5,993576;4,1
-11/10/2026;22:02:18;abajo;37,386326;-5,993665;2`;
+<script type="module">
+// Datos: registros corregidos (rosario.csv, ";" y coma decimal) y trazado entre registros (recorrido.json,
+// calculado sobre el callejero CDAU y retocado a mano con editor.html).
+let CSV, CALLES;
+try {
+  [CSV, CALLES] = await Promise.all([
+    fetch('rosario.csv', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('rosario.csv ' + r.status); return r.text(); }),
+    fetch('recorrido.json', { cache: 'no-cache' }).then(r => { if (!r.ok) throw new Error('recorrido.json ' + r.status); return r.json(); })
+  ]);
+} catch (e) {
+  document.getElementById('meta').textContent = 'No se han podido cargar los datos (' + e.message + '). Esta página tiene que abrirse desde su dirección web, no como archivo local.';
+  throw e;
+}
+const FUERA = 'Recinto de la Catedral';
 
 const num = s => parseFloat(String(s).trim().replace(',', '.'));
 const rows = CSV.trim().split(/\r?\n/).slice(1).map(l => l.split(';')).filter(c => c[3] && c[3].trim())
   .map((c, i) => ({ n: i + 1, fecha: c[0], hora: c[1], accion: c[2], lat: num(c[3]), lon: num(c[4]), prec: num(c[5]) }));
+CALLES.puntos.forEach(p => { if (rows[p.n - 1]) rows[p.n - 1].calle = p.calle || FUERA; });
+const segs = CALLES.segmentos;
+
+// Itinerario: secuencia de calles en orden de paso
+const itin = [];
+{
+  const add = (calle, r) => { const l = itin[itin.length - 1]; if (!l || l.calle !== calle) itin.push({ calle, hora: r.hora, desde: r.n, hasta: r.n, fuera: calle === FUERA }); else l.hasta = r.n; };
+  rows.forEach((r, i) => { add(r.calle, r); const s = segs[i]; if (s) s.calles.forEach(c => add(c, r)); });
+  itin.forEach((t, i) => { const sig = itin[i + 1]; t.hasta = Math.max(t.hasta, sig ? sig.desde : rows.length); });
+}
 
 const bounds = rows.reduce((b, r) => b.extend([r.lon, r.lat]), new maplibregl.LngLatBounds([rows[0].lon, rows[0].lat], [rows[0].lon, rows[0].lat]));
 const pad = () => (window.innerWidth < 760 ? 30 : 60);
 
-const map = new maplibregl.Map({
+const map = window.map = new maplibregl.Map({
   container: 'map',
   style: {
     version: 8,
@@ -174,55 +168,96 @@ const map = new maplibregl.Map({
     ]
   },
   bounds, fitBoundsOptions: { padding: pad() },
-  maxZoom: 21, dragRotate: true, touchPitch: true, cooperativeGestures: false
+  maxZoom: 21, dragRotate: true, touchPitch: true, attributionControl: false
 });
 map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
 map.addControl(new maplibregl.FullscreenControl(), 'top-right');
 map.addControl(new maplibregl.ScaleControl({ unit: 'metric', maxWidth: 120 }), 'bottom-left');
+map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribution: 'Callejero: CDAU · IECA, Junta de Andalucía (CC BY 4.0)' }));
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 let hasta = rows.length;
 const filtro = { abajo: true, arriba: true };
 const visible = r => r.n <= hasta && (filtro[r.accion] ?? true);
-const rutaGeo = () => {
-  const pts = rows.filter(r => r.n <= hasta);
-  return { type: 'FeatureCollection', features: pts.length > 1 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: pts.map(r => [r.lon, r.lat]) } }] : [] };
-};
+
+function rutaGeo() {
+  return { type: 'FeatureCollection', features: segs.filter(s => s.a <= hasta).map(s => ({
+    type: 'Feature', properties: { recta: (s.via === 'plaza' || s.via === 'recta') ? 1 : 0, de: s.de, a: s.a },
+    geometry: { type: 'LineString', coordinates: s.coords } })) };
+}
+const gpsGeo = () => ({ type: 'FeatureCollection', features: hasta > 1 ? [{ type: 'Feature', geometry: { type: 'LineString', coordinates: rows.filter(r => r.n <= hasta).map(r => [r.lon, r.lat]) } }] : [] });
+
+function flecha() {
+  const s = 24, c = document.createElement('canvas'); c.width = c.height = s;
+  const g = c.getContext('2d');
+  g.fillStyle = '#ffffff'; g.strokeStyle = 'rgba(0,0,0,.55)'; g.lineWidth = 1.5;
+  g.beginPath(); g.moveTo(5, 5); g.lineTo(19, 12); g.lineTo(5, 19); g.lineTo(9, 12); g.closePath(); g.fill(); g.stroke();
+  return g.getImageData(0, 0, s, s);
+}
 
 map.on('load', () => {
+  // la atribución compacta arranca desplegada; se pliega para no tapar el mapa en el móvil (sigue en el botón ⓘ)
+  document.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show').forEach(e => e.classList.remove('maplibregl-compact-show'));
+  map.addImage('flecha', flecha(), { pixelRatio: 2 });
   map.addSource('ruta', { type: 'geojson', data: rutaGeo() });
-  map.addLayer({ id: 'ruta-casing', type: 'line', source: 'ruta', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': 6, 'line-opacity': .8 } });
-  map.addLayer({ id: 'ruta', type: 'line', source: 'ruta', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': css('--route'), 'line-width': 3 } });
+  map.addSource('gps', { type: 'geojson', data: gpsGeo() });
+  map.addLayer({ id: 'gps', type: 'line', source: 'gps', layout: { visibility: 'none', 'line-join': 'round' }, paint: { 'line-color': '#7a3cc2', 'line-width': 1.5, 'line-dasharray': [2, 2] } });
+  map.addLayer({ id: 'ruta-casing', type: 'line', source: 'ruta', layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': '#ffffff', 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 5, 19, 10], 'line-opacity': .85 } });
+  map.addLayer({ id: 'ruta', type: 'line', source: 'ruta', filter: ['==', ['get', 'recta'], 0], layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': css('--route'), 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 3, 19, 6] } });
+  map.addLayer({ id: 'ruta-recta', type: 'line', source: 'ruta', filter: ['==', ['get', 'recta'], 1], layout: { 'line-join': 'round' }, paint: { 'line-color': css('--route'), 'line-width': ['interpolate', ['linear'], ['zoom'], 15, 3, 19, 6], 'line-dasharray': [1.5, 1] } });
+  map.addLayer({ id: 'ruta-flechas', type: 'symbol', source: 'ruta', layout: {
+    'symbol-placement': 'line', 'symbol-spacing': ['interpolate', ['linear'], ['zoom'], 15, 60, 19, 110],
+    'icon-image': 'flecha', 'icon-size': ['interpolate', ['linear'], ['zoom'], 15, .7, 19, 1.1], 'icon-allow-overlap': true, 'icon-rotation-alignment': 'map' } });
 });
 
+// Marcadores y listas
 const lista = document.getElementById('lista');
+const fmtPrec = r => '±' + r.prec.toLocaleString('es-ES') + ' m';
 rows.forEach(r => {
   const el = document.createElement('div');
-  el.className = 'mk ' + r.accion; el.textContent = r.n; el.title = `#${r.n} ${r.hora} · ${r.accion}`;
+  el.className = 'mk ' + r.accion; el.textContent = r.n; el.title = `#${r.n} ${r.hora} · ${r.accion} · ${r.calle}`;
   r.el = el;
   r.marker = new maplibregl.Marker({ element: el }).setLngLat([r.lon, r.lat])
     .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(
-      `<b>#${r.n}</b> · ${r.fecha} ${r.hora}<br><span class="t-${r.accion}">${r.accion}</span> · ±${r.prec.toLocaleString('es-ES')} m<br><span class="mono">${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</span>`))
+      `<b>#${r.n}</b> · ${r.hora}<br><b>${r.calle}</b><br><span class="t-${r.accion}">${r.accion}</span> · ${fmtPrec(r)}<br><span class="mono">${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</span>`))
     .addTo(map);
   el.addEventListener('click', () => marcar(r.n, false));
   const li = document.createElement('li');
-  li.innerHTML = `<span class="mono">${r.n}</span><span class="mono">${r.hora.slice(0, 5)}</span><span class="t-${r.accion}">${r.accion}</span><span class="mono" style="color:var(--muted)">±${r.prec.toLocaleString('es-ES')}</span>`;
+  li.innerHTML = `<span class="mono">${r.n}</span><span class="mono">${r.hora.slice(0, 5)}</span><span class="t-${r.accion}">${r.accion}</span><span></span><span></span><span class="calle">${r.calle}</span>`;
   li.addEventListener('click', () => marcar(r.n, true));
   lista.appendChild(li); r.li = li;
 });
+
+const ulItin = document.getElementById('itin');
+itin.forEach(t => {
+  const li = document.createElement('li');
+  if (t.fuera) li.classList.add('fuera');
+  li.innerHTML = `<span class="mono">${t.hora.slice(0, 5)}</span><span>${t.calle}<br><span class="n">registros ${t.desde}${t.hasta > t.desde ? '–' + t.hasta : ''}</span></span>`;
+  li.addEventListener('click', () => {
+    ulItin.querySelectorAll('li').forEach(x => x.classList.toggle('on', x === li));
+    const b = new maplibregl.LngLatBounds();
+    rows.filter(r => r.n >= t.desde && r.n <= t.hasta).forEach(r => b.extend([r.lon, r.lat]));
+    segs.filter(s => s.de >= t.desde && s.a <= t.hasta && s.calles.includes(t.calle)).forEach(s => s.coords.forEach(c => b.extend(c)));
+    map.fitBounds(b, { padding: pad() + 30, maxZoom: 19, bearing: map.getBearing() });
+  });
+  ulItin.appendChild(li);
+});
+
+const tabs = { itin: [document.getElementById('tab-itin'), ulItin], pts: [document.getElementById('tab-pts'), lista] };
+Object.entries(tabs).forEach(([k, [b]]) => b.onclick = () => Object.entries(tabs).forEach(([k2, [b2, ul]]) => { b2.classList.toggle('on', k2 === k); ul.hidden = k2 !== k; }));
 
 function marcar(n, volar) {
   rows.forEach(r => { r.el.classList.toggle('on', r.n === n); r.li.classList.toggle('on', r.n === n); r.marker.getPopup().remove(); });
   const r = rows[n - 1];
   if (volar) map.flyTo({ center: [r.lon, r.lat], zoom: Math.max(map.getZoom(), 19), speed: 1.2 });
   r.marker.togglePopup();
-  r.li.scrollIntoView({ block: 'nearest' });
+  if (!lista.hidden) r.li.scrollIntoView({ block: 'nearest' });
 }
 
 function refrescar() {
   rows.forEach(r => { const v = visible(r); r.el.style.display = v ? '' : 'none'; r.li.classList.toggle('off', !v); });
-  document.getElementById('hastaTxt').textContent = `${hasta} · ${rows[hasta - 1].hora.slice(0, 5)}`;
-  if (map.getSource('ruta')) map.getSource('ruta').setData(rutaGeo());
+  document.getElementById('hastaTxt').textContent = `${hasta} · ${rows[hasta - 1].hora.slice(0, 5)} · ${rows[hasta - 1].calle}`;
+  if (map.getSource('ruta')) { map.getSource('ruta').setData(rutaGeo()); map.getSource('gps').setData(gpsGeo()); }
 }
 
 document.querySelectorAll('#fondos button').forEach(b => b.addEventListener('click', () => {
@@ -235,7 +270,7 @@ document.getElementById('norte').onclick = () => map.easeTo({ bearing: 0, pitch:
 document.getElementById('tilt').onclick = () => map.easeTo({ pitch: map.getPitch() > 5 ? 0 : 55 });
 document.getElementById('fit').onclick = () => map.fitBounds(bounds, { padding: pad(), bearing: map.getBearing() });
 ['abajo', 'arriba'].forEach(a => document.getElementById('f-' + a).onchange = e => { filtro[a] = e.target.checked; refrescar(); });
-document.getElementById('f-ruta').onchange = e => ['ruta', 'ruta-casing'].forEach(id => map.getLayer(id) && map.setLayoutProperty(id, 'visibility', e.target.checked ? 'visible' : 'none'));
+document.getElementById('f-gps').onchange = e => map.getLayer('gps') && map.setLayoutProperty('gps', 'visibility', e.target.checked ? 'visible' : 'none');
 
 const slider = document.getElementById('hasta');
 slider.max = rows.length; slider.value = rows.length;
@@ -252,9 +287,27 @@ play.onclick = () => {
   }, 600);
 };
 
+// Cabecera
 const ab = rows.filter(r => r.accion === 'abajo').length;
+const seg = h => h.split(':').reduce((a, x) => a * 60 + +x, 0);
+const dur = seg(rows[rows.length - 1].hora) - seg(rows[0].hora);
+const metros = segs.reduce((a, s) => a + s.metros, 0);
+const nCalles = new Set(itin.filter(t => !t.fuera).map(t => t.calle)).size;
 document.getElementById('meta').textContent =
-  `${rows[0].fecha} · ${rows.length} registros (${ab} abajo, ${rows.length - ab} arriba) · ${rows[0].hora.slice(0, 5)}–${rows[rows.length - 1].hora.slice(0, 5)}`;
+  `${rows[0].fecha} · ${rows[0].hora.slice(0, 5)}–${rows[rows.length - 1].hora.slice(0, 5)} · ${rows.length} registros (${ab} abajo, ${rows.length - ab} arriba)`;
+document.getElementById('cifras').innerHTML =
+  `<div><b>${(metros / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} km</b><span>recorrido</span></div>` +
+  `<div><b>${Math.floor(dur / 3600)} h ${String(Math.round(dur % 3600 / 60)).padStart(2, '0')}</b><span>duración</span></div>` +
+  `<div><b>${nCalles}</b><span>calles y plazas</span></div>`;
+document.getElementById('dl-geojson').addEventListener('click', e => {
+  e.preventDefault();
+  const fc = { type: 'FeatureCollection', features: segs.map(s => ({ type: 'Feature',
+    properties: { de: s.de, a: s.a, tipo: s.via, metros: s.metros, calles: s.calles },
+    geometry: { type: 'LineString', coordinates: s.coords } })) };
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(fc)], { type: 'application/geo+json' }));
+  a.download = 'recorrido-rosario.geojson'; document.body.appendChild(a); a.click(); a.remove();
+});
 refrescar();
 </script>
 </body>
