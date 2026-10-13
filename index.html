@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Recorrido del Rosario · 11/10/2026</title>
-<meta name="description" content="Plano interactivo del recorrido del Rosario del 11 de octubre de 2026 en Sevilla, calle a calle, con cada registro (abajo/arriba) y su hora.">
+<meta name="description" content="Plano interactivo del recorrido del Rosario del 11 de octubre de 2026 en Sevilla, calle a calle, con cada levantá y arriá y su hora.">
 <meta property="og:title" content="Recorrido del Rosario · 11/10/2026">
 <meta property="og:description" content="Recorrido calle a calle con cada registro y su hora: plano, satélite y ortofoto PNOA.">
 <link rel="stylesheet" href="vendor/maplibre-gl.css">
@@ -18,9 +18,15 @@
 @media (prefers-color-scheme: dark) { :root { --bg: #1d1c1a; --fg: #ece8e0; --muted: #a39d92; --line: #3a3732; --soft: #26241f; color-scheme: dark; } }
 * { box-sizing: border-box; }
 html, body { margin: 0; height: 100%; font-family: var(--font); color: var(--fg); background: var(--bg); }
-#app { display: grid; grid-template-columns: 340px 1fr; height: 100%; }
-#map { height: 100%; }
-aside { overflow-y: auto; border-right: 1px solid var(--line); display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
+#app { display: grid; grid-template-columns: var(--panel, 340px) 12px 1fr; height: 100%; }
+#map { height: 100%; min-width: 0; min-height: 0; }
+#divisor { grid-column: 2; grid-row: 1; display: flex; align-items: center; justify-content: center; gap: 3px; cursor: col-resize; background: var(--soft); border-left: 1px solid var(--line); border-right: 1px solid var(--line); touch-action: none; user-select: none; }
+#divisor i { width: 2px; height: 28px; border-radius: 1px; background: var(--muted); opacity: .7; }
+#divisor:hover i, #divisor.drag i, #divisor:focus-visible i { background: var(--route); opacity: 1; }
+#divisor:focus-visible { outline: 2px solid var(--route); outline-offset: -2px; }
+aside { grid-column: 1; grid-row: 1; min-width: 0; }
+#map { grid-column: 3; grid-row: 1; }
+aside { overflow-y: auto; display: flex; flex-direction: column; padding-bottom: env(safe-area-inset-bottom, 0px); }
 .sec { padding: 12px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
 h1 { font-size: 1.05rem; margin: 0; }
 .meta { font-size: .8rem; color: var(--muted); margin: 0; }
@@ -53,16 +59,17 @@ ul.lst { list-style: none; margin: 0; padding: 0; }
 #itin li::before { content: ""; position: absolute; left: 6px; top: 0; bottom: 0; width: 3px; background: var(--route); opacity: .55; }
 #itin li.fuera::before { background: repeating-linear-gradient(var(--route) 0 4px, transparent 4px 7px); }
 #itin li .n { font-size: .74rem; color: var(--muted); }
-.t-abajo { color: var(--abajo); font-weight: 600; } .t-arriba { color: var(--arriba); font-weight: 600; }
+.acc { font-weight: 600; }
 .mk { width: 22px; height: 22px; border-radius: 50%; border: 2px solid #fff; color: #fff; font: 600 10px/18px var(--font); text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,.45); cursor: pointer; }
-.mk.abajo { background: var(--abajo); } .mk.arriba { background: var(--arriba); }
 .mk.on { outline: 3px solid var(--sel); }
 .maplibregl-popup-content { font-family: var(--font); font-size: .85rem; color: #1f1d1a; }
 .solo-movil { display: none; }
 .nota { font-size: .78rem; color: var(--muted); margin: 0; padding: 10px 14px; }
 @media (max-width: 760px) {
-  #app { grid-template-columns: 1fr; grid-template-rows: 58% 42%; }
-  #map { grid-row: 1; } aside { grid-row: 2; border-right: 0; border-top: 1px solid var(--line); }
+  #app { grid-template-columns: 1fr; grid-template-rows: var(--mapa, 58%) 16px minmax(0, 1fr); }
+  #map { grid-column: 1; grid-row: 1; } aside { grid-column: 1; grid-row: 3; }
+  #divisor { grid-column: 1; grid-row: 2; flex-direction: column; cursor: row-resize; border: 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  #divisor i { width: 32px; height: 2px; }
   .solo-pc { display: none; } .solo-movil { display: block; }
 }
 </style>
@@ -93,8 +100,7 @@ ul.lst { list-style: none; margin: 0; padding: 0; }
     </div>
     <div class="sec">
       <div class="row">
-        <label class="chk"><input type="checkbox" id="f-abajo" checked><i class="dot" style="background:var(--abajo)"></i>abajo</label>
-        <label class="chk"><input type="checkbox" id="f-arriba" checked><i class="dot" style="background:var(--arriba)"></i>arriba</label>
+        <span id="filtros" class="row"></span>
         <label class="chk"><input type="checkbox" id="f-gps">línea GPS directa</label>
       </div>
       <span class="lbl">Hasta el punto <span id="hastaTxt" class="mono"></span></span>
@@ -111,6 +117,7 @@ ul.lst { list-style: none; margin: 0; padding: 0; }
     <ul class="lst" id="lista" hidden></ul>
     <p class="nota">El trazado sigue el eje de las calles del callejero oficial (CDAU) entre cada dos registros consecutivos; los tramos que pasan por espacios que no son calles se han dibujado a mano, y en plazas abiertas el trazo va en línea recta discontinua. Las horas del itinerario son las del último registro antes de entrar en cada calle. Descargar: <a href="rosario.csv" download>registros (CSV)</a> · <a href="#" id="dl-geojson">trazado (GeoJSON)</a></p>
   </aside>
+  <div id="divisor" role="separator" tabindex="0" aria-label="Tamaño del mapa: arrastra, o usa las flechas; doble clic para restablecer" title="Arrastra para cambiar el tamaño del mapa · doble clic para restablecer"><i></i><i></i></div>
   <div id="map"></div>
 </div>
 
@@ -131,9 +138,22 @@ const FUERA = 'Recinto de la Catedral';
 
 const num = s => parseFloat(String(s).trim().replace(',', '.'));
 const rows = CSV.trim().split(/\r?\n/).slice(1).map(l => l.split(';')).filter(c => c[3] && c[3].trim())
-  .map((c, i) => ({ n: i + 1, fecha: c[0], hora: c[1], accion: c[2], lat: num(c[3]), lon: num(c[4]), prec: num(c[5]) }));
-CALLES.puntos.forEach(p => { if (rows[p.n - 1]) rows[p.n - 1].calle = p.calle || FUERA; });
-const segs = CALLES.segmentos;
+  .map((c, i) => ({ n: i + 1, fecha: c[0].trim(), hora: c[1].trim(), accion: c[2].trim(), lat: num(c[3]), lon: num(c[4]) }));
+// El trazado se enlaza con los registros por la hora, así un registro añadido o quitado no descoloca el resto.
+const calleHora = new Map(CALLES.puntos.filter(p => p.hora).map(p => [p.hora, p.calle]));
+rows.forEach((r, i) => { const p = calleHora.has(r.hora) ? calleHora.get(r.hora) : (CALLES.puntos[i] && !CALLES.puntos[i].hora ? CALLES.puntos[i].calle : null); r.calle = p || FUERA; });
+const segHora = new Map(CALLES.segmentos.filter(s => s.h).map(s => [s.h.join('>'), s]));
+const segs = rows.slice(1).map((B, i) => {
+  const A = rows[i];
+  const s = segHora.get(A.hora + '>' + B.hora) || (!CALLES.segmentos[i]?.h && CALLES.segmentos.length === rows.length - 1 ? CALLES.segmentos[i] : null);
+  const coords = s ? s.coords.slice() : [[A.lon, A.lat], [B.lon, B.lat]];
+  coords[0] = [A.lon, A.lat]; coords[coords.length - 1] = [B.lon, B.lat];
+  return { de: i + 1, a: i + 2, via: s ? s.via : 'recta', metros: s ? s.metros : 0, calles: s ? s.calles : [], coords };
+});
+// Acciones (levantá / arriá) y sus colores
+const COLOR = { 'levantá': '#2f63a3', 'arriá': '#b83232' };
+const acciones = [...new Set(rows.map(r => r.accion))];
+const color = a => COLOR[a] || ['#2f63a3', '#b83232', '#6b665d'][acciones.indexOf(a) % 3];
 
 // Itinerario: secuencia de calles en orden de paso
 const itin = [];
@@ -177,7 +197,7 @@ map.addControl(new maplibregl.AttributionControl({ compact: true, customAttribut
 
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
 let hasta = rows.length;
-const filtro = { abajo: true, arriba: true };
+const filtro = Object.fromEntries(acciones.map(a => [a, true]));
 const visible = r => r.n <= hasta && (filtro[r.accion] ?? true);
 
 function rutaGeo() {
@@ -212,18 +232,17 @@ map.on('load', () => {
 
 // Marcadores y listas
 const lista = document.getElementById('lista');
-const fmtPrec = r => '±' + r.prec.toLocaleString('es-ES') + ' m';
 rows.forEach(r => {
   const el = document.createElement('div');
-  el.className = 'mk ' + r.accion; el.textContent = r.n; el.title = `#${r.n} ${r.hora} · ${r.accion} · ${r.calle}`;
+  el.className = 'mk'; el.style.background = color(r.accion); el.textContent = r.n; el.title = `#${r.n} ${r.hora} · ${r.accion} · ${r.calle}`;
   r.el = el;
   r.marker = new maplibregl.Marker({ element: el }).setLngLat([r.lon, r.lat])
     .setPopup(new maplibregl.Popup({ offset: 14 }).setHTML(
-      `<b>#${r.n}</b> · ${r.hora}<br><b>${r.calle}</b><br><span class="t-${r.accion}">${r.accion}</span> · ${fmtPrec(r)}<br><span class="mono">${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</span>`))
+      `<b>#${r.n}</b> · ${r.hora}<br><b>${r.calle}</b><br><span class="acc" style="color:${color(r.accion)}">${r.accion}</span><br><span class="mono">${r.lat.toFixed(6)}, ${r.lon.toFixed(6)}</span>`))
     .addTo(map);
-  el.addEventListener('click', () => marcar(r.n, false));
+  el.addEventListener('click', () => marcar(r.n, false, true));
   const li = document.createElement('li');
-  li.innerHTML = `<span class="mono">${r.n}</span><span class="mono">${r.hora.slice(0, 5)}</span><span class="t-${r.accion}">${r.accion}</span><span></span><span></span><span class="calle">${r.calle}</span>`;
+  li.innerHTML = `<span class="mono">${r.n}</span><span class="mono">${r.hora.slice(0, 5)}</span><span class="acc" style="color:${color(r.accion)}">${r.accion}</span><span></span><span></span><span class="calle">${r.calle}</span>`;
   li.addEventListener('click', () => marcar(r.n, true));
   lista.appendChild(li); r.li = li;
 });
@@ -246,11 +265,12 @@ itin.forEach(t => {
 const tabs = { itin: [document.getElementById('tab-itin'), ulItin], pts: [document.getElementById('tab-pts'), lista] };
 Object.entries(tabs).forEach(([k, [b]]) => b.onclick = () => Object.entries(tabs).forEach(([k2, [b2, ul]]) => { b2.classList.toggle('on', k2 === k); ul.hidden = k2 !== k; }));
 
-function marcar(n, volar) {
-  rows.forEach(r => { r.el.classList.toggle('on', r.n === n); r.li.classList.toggle('on', r.n === n); r.marker.getPopup().remove(); });
+function marcar(n, volar, desdeMarcador) {
+  // al pulsar el propio marcador, MapLibre ya abre su ficha: aquí solo se cierran las demás
+  rows.forEach(r => { r.el.classList.toggle('on', r.n === n); r.li.classList.toggle('on', r.n === n); if (!(desdeMarcador && r.n === n)) r.marker.getPopup().remove(); });
   const r = rows[n - 1];
   if (volar) map.flyTo({ center: [r.lon, r.lat], zoom: Math.max(map.getZoom(), 19), speed: 1.2 });
-  r.marker.togglePopup();
+  if (!desdeMarcador) r.marker.togglePopup();
   if (!lista.hidden) r.li.scrollIntoView({ block: 'nearest' });
 }
 
@@ -269,7 +289,12 @@ document.getElementById('rotR').onclick = () => map.easeTo({ bearing: map.getBea
 document.getElementById('norte').onclick = () => map.easeTo({ bearing: 0, pitch: 0 });
 document.getElementById('tilt').onclick = () => map.easeTo({ pitch: map.getPitch() > 5 ? 0 : 55 });
 document.getElementById('fit').onclick = () => map.fitBounds(bounds, { padding: pad(), bearing: map.getBearing() });
-['abajo', 'arriba'].forEach(a => document.getElementById('f-' + a).onchange = e => { filtro[a] = e.target.checked; refrescar(); });
+acciones.forEach(a => {
+  const l = document.createElement('label'); l.className = 'chk';
+  l.innerHTML = `<input type="checkbox" checked><i class="dot" style="background:${color(a)}"></i>${a}`;
+  l.querySelector('input').onchange = e => { filtro[a] = e.target.checked; refrescar(); };
+  document.getElementById('filtros').appendChild(l);
+});
 document.getElementById('f-gps').onchange = e => map.getLayer('gps') && map.setLayoutProperty('gps', 'visibility', e.target.checked ? 'visible' : 'none');
 
 const slider = document.getElementById('hasta');
@@ -288,13 +313,12 @@ play.onclick = () => {
 };
 
 // Cabecera
-const ab = rows.filter(r => r.accion === 'abajo').length;
 const seg = h => h.split(':').reduce((a, x) => a * 60 + +x, 0);
 const dur = seg(rows[rows.length - 1].hora) - seg(rows[0].hora);
 const metros = segs.reduce((a, s) => a + s.metros, 0);
 const nCalles = new Set(itin.filter(t => !t.fuera).map(t => t.calle)).size;
 document.getElementById('meta').textContent =
-  `${rows[0].fecha} · ${rows[0].hora.slice(0, 5)}–${rows[rows.length - 1].hora.slice(0, 5)} · ${rows.length} registros (${ab} abajo, ${rows.length - ab} arriba)`;
+  `${rows[0].fecha} · ${rows[0].hora.slice(0, 5)}–${rows[rows.length - 1].hora.slice(0, 5)} · ${rows.length} registros (${acciones.map(a => rows.filter(r => r.accion === a).length + ' ' + a).join(', ')})`;
 document.getElementById('cifras').innerHTML =
   `<div><b>${(metros / 1000).toLocaleString('es-ES', { maximumFractionDigits: 1 })} km</b><span>recorrido</span></div>` +
   `<div><b>${Math.floor(dur / 3600)} h ${String(Math.round(dur % 3600 / 60)).padStart(2, '0')}</b><span>duración</span></div>` +
@@ -308,6 +332,46 @@ document.getElementById('dl-geojson').addEventListener('click', e => {
   a.href = URL.createObjectURL(new Blob([JSON.stringify(fc)], { type: 'application/geo+json' }));
   a.download = 'recorrido-rosario.geojson'; document.body.appendChild(a); a.click(); a.remove();
 });
+// Divisor entre panel y mapa: arrastrar, flechas del teclado, doble clic para restablecer
+{
+  const app = document.getElementById('app'), div = document.getElementById('divisor');
+  const movil = () => matchMedia('(max-width: 760px)').matches;
+  const KEY = 'rosario-divisor:v1';
+  let pref = {};
+  try { pref = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) {}
+  const aplicar = () => {
+    if (pref.panel) app.style.setProperty('--panel', Math.min(Math.max(pref.panel, 220), Math.max(innerWidth - 220, 220)) + 'px'); else app.style.removeProperty('--panel');
+    if (pref.mapa) app.style.setProperty('--mapa', Math.min(Math.max(pref.mapa, 15), 88) + '%'); else app.style.removeProperty('--mapa');
+    map.resize();
+  };
+  const guardar = () => { try { localStorage.setItem(KEY, JSON.stringify(pref)); } catch (e) {} };
+  const fijar = (x, y) => {
+    const r = app.getBoundingClientRect();
+    if (movil()) pref.mapa = (y - r.top) / r.height * 100; else pref.panel = x - r.left;
+    aplicar();
+  };
+  div.addEventListener('pointerdown', e => {
+    e.preventDefault(); div.setPointerCapture(e.pointerId); div.classList.add('drag');
+    const mover = ev => fijar(ev.clientX, ev.clientY);
+    const fin = () => { div.classList.remove('drag'); div.removeEventListener('pointermove', mover); div.removeEventListener('pointerup', fin); div.removeEventListener('pointercancel', fin); guardar(); };
+    div.addEventListener('pointermove', mover); div.addEventListener('pointerup', fin); div.addEventListener('pointercancel', fin);
+  });
+  div.addEventListener('dblclick', () => { pref = {}; guardar(); aplicar(); });
+  div.addEventListener('keydown', e => {
+    const paso = e.shiftKey ? 10 : 3;
+    if (movil()) {
+      const v = pref.mapa || 58;
+      if (e.key === 'ArrowUp') pref.mapa = v - paso; else if (e.key === 'ArrowDown') pref.mapa = v + paso; else return;
+    } else {
+      const v = pref.panel || 340;
+      if (e.key === 'ArrowLeft') pref.panel = v - paso * 10; else if (e.key === 'ArrowRight') pref.panel = v + paso * 10; else return;
+    }
+    e.preventDefault(); aplicar(); guardar();
+  });
+  new ResizeObserver(() => map.resize()).observe(document.getElementById('map'));
+  addEventListener('resize', aplicar);
+  aplicar();
+}
 refrescar();
 </script>
 </body>
